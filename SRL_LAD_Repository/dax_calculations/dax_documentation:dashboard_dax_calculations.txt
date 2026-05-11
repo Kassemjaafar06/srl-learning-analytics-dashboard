@@ -1,0 +1,368 @@
+SRL LEARNING ANALYTICS DASHBOARD — DAX LOGIC DOCUMENTATION
+
+====================================================
+MAIN PAGE
+====================================================
+
+Supporting File:
+- Quotes.xlsx
+
+Description:
+Contains weekly motivational/contextual quotes displayed dynamically on the dashboard.
+
+----------------------------------------------------
+Random Quote
+----------------------------------------------------
+
+Random Quote =
+VAR VisibleWeeks = VALUES(WeekTable[Value])
+VAR QuotesThisWeek =
+    FILTER(
+        ALL('Quotes'),
+        'Quotes'[Week] IN VisibleWeeks
+    )
+VAR RandomizedQuotes =
+    ADDCOLUMNS(
+        QuotesThisWeek,
+        "RandValue", RAND()
+    )
+VAR ChosenQuote =
+    TOPN(1, RandomizedQuotes, [RandValue], DESC)
+RETURN
+    MAXX(ChosenQuote, 'Quotes'[Quote])
+
+Description:
+Displays a random quote depending on the selected academic week.
+
+====================================================
+LEARNING OBJECTIVES PAGE
+====================================================
+
+Supporting Files:
+- Objective mapping.xlsx
+- Event Mapping.xlsx
+
+Description:
+Contains weekly learning objectives and semester planning events.
+
+----------------------------------------------------
+Selected Week Title
+----------------------------------------------------
+
+Selected Week Title =
+"Learning Objectives - Week " &
+SELECTEDVALUE('WeekTable'[Value])
+
+Description:
+Dynamically updates page title according to selected week.
+
+----------------------------------------------------
+What To Focus On
+----------------------------------------------------
+
+BOBJ =
+" -> " & 'Objectives'[Objective] &
+UNICHAR(10) & UNICHAR(10)
+
+Description:
+Formats weekly objectives into readable focus points.
+
+====================================================
+MY PROGRESS PAGE
+====================================================
+
+Supporting File:
+- Week Mapping.xlsx
+
+Description:
+Maps quizzes, exercises, and activities to course weeks.
+
+----------------------------------------------------
+Cumulative Average Exercise Score
+----------------------------------------------------
+
+Cumulative Average Ex Score =
+VAR SelectedWeek = MAX('WeekTable'[Value])
+RETURN
+CALCULATE(
+    AVERAGE('Ex Table'[Score]),
+    FILTER(
+        ALL('WeekTable'[Value]),
+        'WeekTable'[Value] <= SelectedWeek
+    )
+)
+
+Description:
+Calculates cumulative exercise average until selected week.
+
+----------------------------------------------------
+Exercise Completion Rate
+----------------------------------------------------
+
+ExCompletion rate =
+'Ex Table'[Ex Completed] &
+"/" &
+[Total Ex Until Selected Week]
+
+Description:
+Displays completed exercises compared to total available exercises.
+
+----------------------------------------------------
+Cumulative Quiz Average Score
+----------------------------------------------------
+
+Cumulative Quiz Average Score =
+VAR SelectedWeek = MAX('WeekTable'[Value])
+RETURN
+CALCULATE(
+    'Quiz Table'[Avg Score],
+    FILTER(
+        ALL('WeekTable'[Value]),
+        'WeekTable'[Value] <= SelectedWeek
+    )
+)
+
+Description:
+Calculates cumulative quiz average until selected week.
+
+----------------------------------------------------
+Quiz Completion Rate
+----------------------------------------------------
+
+QuizCompletion rate =
+'Quiz Table'[Quizzes Completed] &
+"/" &
+'Quiz Table'[Total Quizzes Until Selected Week]
+
+Description:
+Displays completed quizzes compared to total available quizzes.
+
+====================================================
+PEER COMPARISON — CURRENT YEAR
+====================================================
+
+----------------------------------------------------
+Others Cumulative Quiz Average Score
+----------------------------------------------------
+
+Others Cumulative Quiz Avg Score =
+VAR SelectedWeek =
+    MAX('WeekTable'[Value])
+VAR SelectedStudent =
+    SELECTEDVALUE('Quiz Table'[Student])
+RETURN
+CALCULATE(
+    AVERAGE('Quiz Table'[Score]),
+    FILTER(
+        ALL('WeekTable'[Value]),
+        'WeekTable'[Value] <= SelectedWeek
+    ),
+    'Quiz Table'[Student] <> SelectedStudent
+)
+
+Description:
+Compares selected student's quiz performance with classmates.
+
+----------------------------------------------------
+Others Exercise Average Score
+----------------------------------------------------
+
+Others Ex Avg Score =
+VAR SelectedWeek =
+    MAX('WeekTable'[Value])
+
+VAR SelectedStudent =
+    SELECTEDVALUE('Quiz Table'[Student])
+
+RETURN
+CALCULATE(
+    AVERAGE('Ex Table'[Score]),
+    FILTER(
+        ALL('WeekTable'[Value]),
+        'WeekTable'[Value] <= SelectedWeek
+    ),
+    'Quiz Table'[Student] <> SelectedStudent
+)
+
+Description:
+Compares selected student's exercise performance with classmates.
+
+====================================================
+PEER COMPARISON — PREVIOUS YEAR
+====================================================
+
+----------------------------------------------------
+Simulated Quiz Score
+----------------------------------------------------
+
+Simulated Quiz Score =
+VAR SelectedWeek =
+    MAX('WeekTable'[Value])
+
+VAR SelectedStudent =
+    SELECTEDVALUE('Quiz Table'[Student])
+
+RETURN
+CALCULATE(
+    MIN(
+        100,
+        MAX(
+            0,
+            AVERAGE('Quiz Table'[Score]) + [Quiz Adjustment Value]
+        )
+    ),
+    FILTER(
+        ALL('WeekTable'[Value]),
+        'WeekTable'[Value] <= SelectedWeek
+    ),
+    'Quiz Table'[Student] <> SelectedStudent
+)
+
+Description:
+Simulates previous-year quiz benchmark using adjusted averages.
+
+----------------------------------------------------
+Simulated Exercise Cumulative Average
+----------------------------------------------------
+
+Simulated Exercise Cumulative Avg =
+VAR SelectedWeek =
+    MAX('WeekTable'[Value])
+
+VAR BaseCumulative =
+    CALCULATE(
+        AVERAGE('Ex Table'[Score]),
+        FILTER(
+            ALL('WeekTable'[Value]),
+            'WeekTable'[Value] <= SelectedWeek
+        )
+    )
+
+VAR CumulativeOffset =
+    SelectedWeek * 0.005
+
+RETURN
+MIN(
+    1,
+    MAX(
+        0,
+        BaseCumulative + CumulativeOffset
+    )
+)
+
+Description:
+Simulates previous-year exercise averages using cumulative offsets.
+
+====================================================
+ADAPTIVE PERFORMANCE FEEDBACK
+====================================================
+
+----------------------------------------------------
+Exercise Performance Message
+----------------------------------------------------
+
+Performance Message Ex =
+VAR MyAvg = [Cumulative Average Ex Score]
+VAR ClassAvg = [Others Ex Avg Score]
+VAR Diff = MyAvg - ClassAvg
+RETURN
+SWITCH(
+    TRUE(),
+    Diff >= 0.1,
+    "🔥 Excellent! You're far ahead of your classmates!",
+
+    Diff > 0,
+    "✅ Keep it going! You're doing better in exercise scores than your classmates.",
+
+    Diff > -2,
+    "⚠️ You can always redo your exs session to catch up!",
+
+    "🚀 Don’t give up! You can still improve and reach your class average."
+)
+
+Description:
+Provides adaptive feedback based on exercise performance compared to classmates.
+
+----------------------------------------------------
+Historical Exercise Feedback
+----------------------------------------------------
+
+Performance Message Ex2 =
+VAR MyAvg = [Cumulative Average Ex Score]
+VAR ClassAvg = [Others Ex Avg Score]
+VAR Diff = MyAvg - ClassAvg
+
+RETURN
+SWITCH(
+    TRUE(),
+
+    Diff >= 0.1,
+    "🔥 Excellent! You're performing far better this year than last year's class.",
+
+    Diff > 0,
+    "✅ Good progress! You're doing better in exercises this year compared to last year's class average.",
+
+    Diff > -0.2,
+    "⚠️ Compared to last year's class average, you are a bit behind, a small stretch will get you on track.",
+
+    "🚀 You're currently below last year's exercise average, but you still have room to improve."
+)
+
+Description:
+Provides historical exercise comparison feedback.
+
+----------------------------------------------------
+Quiz Performance Feedback
+----------------------------------------------------
+
+Performance Message =
+VAR MyAvg = [Cumulative Average Score]
+VAR ClassAvg = [Others Avg Score]
+VAR Diff = MyAvg - ClassAvg
+
+RETURN
+SWITCH(
+    TRUE(),
+
+    Diff >= 0.1,
+    "🔥 Excellent! You're far ahead of your classmates!",
+
+    Diff > 0,
+    "✅ Keep it going! You're doing better in quiz scores than your classmates.",
+
+    Diff > -2,
+    "⚠️ You're close — a little push in your quizzes and you'll catch up!",
+
+    "🚀 Don’t give up! You can still improve and reach your class average."
+)
+
+Description:
+Provides adaptive quiz feedback compared to classmates.
+
+----------------------------------------------------
+Historical Quiz Feedback
+----------------------------------------------------
+
+Performance Message2 =
+VAR MyAvg = [Cumulative Average Score]
+VAR ClassAvg = [Simulated Quiz Score]
+VAR Diff = MyAvg - ClassAvg
+
+RETURN
+SWITCH(
+    TRUE(),
+
+    Diff >= 0.1,
+    "🔥 Excellent! You're performing far better this year than the class did last year.",
+
+    Diff > 0,
+    "✅ Great progress! You're doing better this year compared to last year's class average.",
+
+    Diff > -0.2,
+    "⚠️ You're very close to last year's class average — a small push will put you ahead.",
+
+    "🚀 You're currently below last year's class average, but there’s plenty of room to improve."
+)
+
+Description:
+Provides historical quiz comparison feedba
